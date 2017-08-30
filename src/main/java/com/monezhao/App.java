@@ -9,6 +9,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.logging.log4j.Log4jESLoggerFactory;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -31,6 +32,7 @@ import java.io.IOException;
 public class App {
 
   public static void main(String[] args) {
+    Log4jESLoggerFactory.getRootLogger().setLevel("ERROR");
     Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", "ciphergateway").build();
     Client client = new TransportClient(settings)
         .addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
