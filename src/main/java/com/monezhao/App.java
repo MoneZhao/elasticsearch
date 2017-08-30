@@ -38,6 +38,7 @@ public class App {
     exportES(client);
 //    deleteES(client);
 //    importES(client);
+    client.close();
   }
 
   private static void importES(Client client) {
