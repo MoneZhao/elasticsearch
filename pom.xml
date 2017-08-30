@@ -32,20 +32,20 @@
       <version>1.7.2</version>
       <type>jar</type>
     </dependency>
-    <dependency>
-      <groupId>io.searchbox</groupId>
-      <artifactId>jest-common</artifactId>
-      <version>2.0.4-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>io.searchbox</groupId>
-      <artifactId>jest</artifactId>
-      <version>2.0.4-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>23.0</version>
-    </dependency>
+    <!--<dependency>-->
+      <!--<groupId>io.searchbox</groupId>-->
+      <!--<artifactId>jest-common</artifactId>-->
+      <!--<version>2.0.4-SNAPSHOT</version>-->
+    <!--</dependency>-->
+    <!--<dependency>-->
+      <!--<groupId>io.searchbox</groupId>-->
+      <!--<artifactId>jest</artifactId>-->
+      <!--<version>2.0.4-SNAPSHOT</version>-->
+    <!--</dependency>-->
+    <!--<dependency>-->
+      <!--<groupId>com.google.guava</groupId>-->
+      <!--<artifactId>guava</artifactId>-->
+      <!--<version>23.0</version>-->
+    <!--</dependency>-->
   </dependencies>
 </project>
