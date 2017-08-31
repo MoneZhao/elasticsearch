@@ -39,6 +39,9 @@ public class App {
   //  public static final String type = "dashboard";
   public static final String type = "employee";
 
+  private static final int size = 10000;
+  private static final int scroll = 600000;
+
   public static void main(String[] args) throws IOException {
     Log4jESLoggerFactory.getRootLogger().setLevel("ERROR");
     Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", "ciphergateway").build();
@@ -125,8 +128,8 @@ public class App {
   private static void exportES(Client client) throws IOException {
     SearchResponse response = client.prepareSearch(index).setTypes(type)
         .setQuery(QueryBuilders.matchAllQuery())
-        .setSize(10000)//max of hits will be returned for each scroll
-        .setScroll(new TimeValue(600000))//设置滚动的时间
+        .setSize(size)//max of hits will be returned for each scroll
+        .setScroll(new TimeValue(scroll))//设置滚动的时间
         .setSearchType(SearchType.SCAN)//告诉ES不需要排序只要结果返回即可
         .get();
 
@@ -147,7 +150,7 @@ public class App {
           );
           out.write("\n");
         }
-        response = client.prepareSearchScroll(response.getScrollId()).setScroll(new TimeValue(60000)).get();
+        response = client.prepareSearchScroll(response.getScrollId()).setScroll(new TimeValue(scroll)).get();
       } while (response.getHits().getHits().length != 0);
     }
   }
