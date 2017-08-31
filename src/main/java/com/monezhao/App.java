@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonObject;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
@@ -14,10 +15,12 @@ import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.FilterBuilders;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -32,20 +35,22 @@ import java.util.Objects;
  */
 public class App {
 
-//  public static final String index = "dashboard";
-    public static final String index = "megacorp";
-//  public static final String type = "dashboard";
+  //  public static final String index = "dashboard";
+  public static final String index = "megacorp";
+  //  public static final String type = "dashboard";
   public static final String type = "employee";
 
   public static void main(String[] args) throws IOException {
     Log4jESLoggerFactory.getRootLogger().setLevel("ERROR");
     Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", "ciphergateway").build();
+    //Use one and only one Client in your JVM. It's threadsafe.
     Client client = new TransportClient(settings)
         .addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
 
-    exportES(client);
+//    exportES(client);
 //    deleteES(client);
 //    importES(client);
+    searchES(client);
     client.close();
   }
 
@@ -119,16 +124,21 @@ public class App {
   }
 
   private static void exportES(Client client) throws IOException {
-    SearchResponse response = client.prepareSearch(index).setTypes(type)
-        .setQuery(
-            QueryBuilders.filteredQuery(
-                QueryBuilders.matchPhraseQuery("operation", "账号密码登录"),
-                FilterBuilders.rangeFilter("opertime").from(1494916514776L).to(1494916556062L)
-                ))
+    SearchRequestBuilder requestBuilder = client.prepareSearch(index).setTypes(type)
+        .setQuery(QueryBuilders.matchAllQuery())
+//        .setQuery(
+//            QueryBuilders.filteredQuery(
+//                QueryBuilders.matchPhraseQuery("operation", "账号密码登录"),
+//                FilterBuilders.rangeFilter("opertime").from(1494916514776L).to(1494916556062L)
+//                ))
 //        .addSort(SortBuilders.fieldSort("opertime"))
         .setSize(10000)
+//    setScroll(new TimeValue(600000)) 设置滚动的时间
         .setScroll(new TimeValue(600000))
-        .setSearchType(SearchType.SCAN).execute().actionGet();//setSearchType(SearchType.Scan) 告诉ES不需要排序只要结果返回即可 setScroll(new TimeValue(600000)) 设置滚动的时间
+//    setSearchType(SearchType.Scan) 告诉ES不需要排序只要结果返回即可
+        .setSearchType(SearchType.SCAN);
+    System.out.println(requestBuilder);
+    SearchResponse response = requestBuilder.execute().actionGet();
     String scrollid = response.getScrollId();
 
     String filePath = "es.txt";
@@ -160,4 +170,32 @@ public class App {
       }
     }
   }
+
+  private static void searchES(Client client) {
+    SearchRequestBuilder requestBuilder = client
+        .prepareSearch("dashboard")
+        .setTypes("dashboard");
+
+    buildQuery(requestBuilder);
+
+    System.out.println(requestBuilder.toString());
+    SearchResponse response = requestBuilder.execute().actionGet();
+
+    System.out.println(response.getHits().totalHits());
+    response.getHits().forEach(hit -> System.out.println(hit.getSourceAsString()));
+  }
+
+  private static void buildQuery(SearchRequestBuilder requestBuilder) {
+    requestBuilder
+        .setFrom(0)
+        .setSize(5)
+        .addSort("@timestamp", SortOrder.DESC);
+    BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+    QueryBuilder regexpQuery = QueryBuilders.matchQuery("operation", "账号密码登录");
+    queryBuilder.must(regexpQuery);
+
+    requestBuilder.setQuery(queryBuilder);
+  }
+
+
 }
