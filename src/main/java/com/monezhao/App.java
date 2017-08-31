@@ -19,7 +19,6 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.io.BufferedReader;
@@ -47,10 +46,10 @@ public class App {
     Client client = new TransportClient(settings)
         .addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
 
-//    exportES(client);
+    exportES(client);
 //    deleteES(client);
 //    importES(client);
-    searchES(client);
+//    searchES(client);
     client.close();
   }
 
@@ -124,22 +123,12 @@ public class App {
   }
 
   private static void exportES(Client client) throws IOException {
-    SearchRequestBuilder requestBuilder = client.prepareSearch(index).setTypes(type)
+    SearchResponse response = client.prepareSearch(index).setTypes(type)
         .setQuery(QueryBuilders.matchAllQuery())
-//        .setQuery(
-//            QueryBuilders.filteredQuery(
-//                QueryBuilders.matchPhraseQuery("operation", "账号密码登录"),
-//                FilterBuilders.rangeFilter("opertime").from(1494916514776L).to(1494916556062L)
-//                ))
-//        .addSort(SortBuilders.fieldSort("opertime"))
-        .setSize(10000)
-//    setScroll(new TimeValue(600000)) 设置滚动的时间
-        .setScroll(new TimeValue(600000))
-//    setSearchType(SearchType.Scan) 告诉ES不需要排序只要结果返回即可
-        .setSearchType(SearchType.SCAN);
-    System.out.println(requestBuilder);
-    SearchResponse response = requestBuilder.execute().actionGet();
-    String scrollid = response.getScrollId();
+        .setSize(10000)//max of hits will be returned for each scroll
+        .setScroll(new TimeValue(600000))//设置滚动的时间
+        .setSearchType(SearchType.SCAN)//告诉ES不需要排序只要结果返回即可
+        .get();
 
     String filePath = "es.txt";
     File file = new File(filePath);
@@ -148,17 +137,8 @@ public class App {
     System.out.println("create file " + file.createNewFile());
     try (BufferedWriter out = new BufferedWriter(new FileWriter(filePath, true))) {
       //把导出的结果以JSON的格式写到文件里,每次返回数据10000条。一直循环查询直到所有的数据都查询出来
-      while (true) {
-        SearchResponse response2 = client.prepareSearchScroll(scrollid).setScroll(new TimeValue(1000000))
-            .execute().actionGet();
-        SearchHits searchHit = response2.getHits();
-        //再次查询不到数据时跳出循环
-        if (searchHit.getHits().length == 0) {
-          break;
-        }
-        for (int i = 0; i < searchHit.getHits().length; i++) {
-          SearchHit hit = searchHit.getHits()[i];
-          System.out.println(hit.getSourceAsString());
+      do {
+        for (SearchHit hit : response.getHits().getHits()) {
           out.write(
               new JsonObject(hit.getSourceAsString())
                   .put("ESindex", hit.index())
@@ -167,7 +147,8 @@ public class App {
           );
           out.write("\n");
         }
-      }
+        response = client.prepareSearchScroll(response.getScrollId()).setScroll(new TimeValue(60000)).get();
+      } while (response.getHits().getHits().length != 0);
     }
   }
 
