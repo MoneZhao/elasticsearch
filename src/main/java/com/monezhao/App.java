@@ -1,6 +1,7 @@
 package com.monezhao;
 
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -34,10 +35,10 @@ import java.util.Objects;
  */
 public class App {
 
-  //  public static final String index = "dashboard";
-  public static final String index = "megacorp";
-  //  public static final String type = "dashboard";
-  public static final String type = "employee";
+  public static final String index = "dashboard";
+  //  public static final String index = "megacorp";
+  public static final String type = "dashboard";
+//  public static final String type = "employee";
 
   private static final int size = 10000;
   private static final int scroll = 600000;
@@ -49,11 +50,63 @@ public class App {
     Client client = new TransportClient(settings)
         .addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
 
-    exportES(client);
+    Long start = System.currentTimeMillis();
+//    exportES(client);
 //    deleteES(client);
 //    importES(client);
 //    searchES(client);
+    exportAndDeleteES(client);
     client.close();
+    Long end = System.currentTimeMillis();
+    System.out.println("用时: " + (end - start) + " ms");
+  }
+
+  private static void exportAndDeleteES(Client client) throws IOException {
+    SearchResponse response = client.prepareSearch(index).setTypes(type)
+        .setQuery(QueryBuilders.matchAllQuery())
+        .setSize(size)//max of hits will be returned for each scroll
+        .setScroll(new TimeValue(scroll))//设置滚动的时间
+        .setSearchType(SearchType.SCAN)//告诉ES不需要排序只要结果返回即可
+        .get();
+    BulkRequestBuilder bulkRequest = client.prepareBulk();
+
+    String filePath = "es.txt";
+    File file = new File(filePath);
+    System.out.println(file.getAbsolutePath());
+    System.out.println("delete file " + file.delete());
+    System.out.println("create file " + file.createNewFile());
+
+    try (BufferedWriter out = new BufferedWriter(new FileWriter(filePath, true))) {
+      //把导出的结果以JSON的格式写到文件里,每次返回数据10000条。一直循环查询直到所有的数据都查询出来
+      do {
+        JsonArray idArray = new JsonArray();
+        for (SearchHit hit : response.getHits().getHits()) {
+          String id = hit.getId();
+          idArray.add(id);
+          out.write(
+              new JsonObject(hit.getSourceAsString())
+                  .put("ESindex", hit.index())
+                  .put("EStype", hit.type())
+                  .toString()
+          );
+          out.write("\n");
+        }
+        response = client.prepareSearchScroll(response.getScrollId()).setScroll(new TimeValue(scroll)).get();
+        if (idArray.isEmpty()){
+          continue;
+        }
+        for (Object o1 : idArray) {
+          String id = (String) o1;
+          bulkRequest.add(client.prepareDelete(index, type, id).request());
+        }
+        BulkResponse bulkResponse = bulkRequest.get();
+        if (bulkResponse.hasFailures()) {
+          for (BulkItemResponse item : bulkResponse.getItems()) {
+            System.out.println(item.getFailureMessage());
+          }
+        }
+      } while (response.getHits().getHits().length != 0);
+    }
   }
 
   private static void importES(Client client) throws IOException {
